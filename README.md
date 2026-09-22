@@ -1,21 +1,10 @@
 # XrayR
-
-[![](https://img.shields.io/badge/TgChat-@XrayR讨论-blue.svg)](https://t.me/XrayR_project)
-[![](https://img.shields.io/badge/Channel-@XrayR通知-blue.svg)](https://t.me/XrayR_channel)
-![](https://img.shields.io/github/stars/XrayR-project/XrayR)
-![](https://img.shields.io/github/forks/XrayR-project/XrayR)
-![](https://github.com/XrayR-project/XrayR/actions/workflows/release.yml/badge.svg)
-![](https://github.com/XrayR-project/XrayR/actions/workflows/docker.yml/badge.svg)
-[![Github All Releases](https://img.shields.io/github/downloads/XrayR-project/XrayR/total.svg)]()
-
-
-[English](https://github.com/XrayR-project/XrayR/blob/master/README-en.md)|[Iranian](https://github.com/XrayR-project/XrayR/blob/master/README_Fa.md)|[Vietnamese](https://github.com/XrayR-project/XrayR/blob/master/README-vi.md)
-
 A Xray backend framework that can easily support many panels.
 
 一个基于Xray的后端框架，支持V2ay,Trojan,Shadowsocks协议，极易扩展，支持多面板对接。
 
-如果您喜欢本项目，可以右上角点个star+watch，持续关注本项目的进展。
+本项目Fork自其备份项目,重新修改脚本指向路径和编译最新096版本.
+一键安装脚本可直接使用,接替之前的官方情况,程序无任何修改.
 
 使用教程：[详细使用教程](https://xrayr-project.github.io/XrayR-doc/)
 
@@ -95,15 +84,3 @@ wget -N https://raw.githubusercontent.com/qqlikegi/XrayR-096/master/install.sh &
 ## Licence
 
 [Mozilla Public License Version 2.0](https://github.com/XrayR-project/XrayR/blob/master/LICENSE)
-
-## Telgram
-
-[XrayR后端讨论](https://t.me/XrayR_project)
-
-[XrayR通知](https://t.me/XrayR_channel)
-
-## Stargazers over time
-
-[![Stargazers over time](https://starchart.cc/XrayR-project/XrayR.svg)](https://starchart.cc/XrayR-project/XrayR)
-
-
