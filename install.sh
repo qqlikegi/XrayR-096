@@ -46,7 +46,12 @@ ARCHIVE="XrayR-${ASSET}.zip"
 ARCHIVE_PATH="${TMP_DIR}/${ARCHIVE}"
 
 echo "从 ${REPO} 下载 ${ARCHIVE}..."
-curl --fail --location --retry 3 --output "$ARCHIVE_PATH" "${BASE_URL}/${ARCHIVE}"
+if ! curl --fail --location --retry 3 --output "$ARCHIVE_PATH" "${BASE_URL}/${ARCHIVE}"; then
+  echo "下载失败：你的 GitHub Release 还没有生成 ${ARCHIVE}。" >&2
+  echo "请等待 GitHub Actions 完成后再运行本脚本：" >&2
+  echo "https://github.com/${REPO}/actions" >&2
+  exit 1
+fi
 
 mkdir -p "$INSTALL_DIR"
 unzip -oq "$ARCHIVE_PATH" -d "$TMP_DIR/package"
