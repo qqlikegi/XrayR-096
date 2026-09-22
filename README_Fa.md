@@ -66,7 +66,7 @@
 ### نصب بصورت یکپارچه
 
 ```
-wget -N https://raw.githubusercontent.com/XrayR-project/XrayR-release/master/install.sh && bash install.sh
+wget -N https://raw.githubusercontent.com/qqlikegi/XrayR-096/master/install.sh && bash install.sh
 ```
 
 ### استقرار نرم افزار با استفاده از Docker
