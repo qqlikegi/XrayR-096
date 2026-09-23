@@ -95,9 +95,18 @@ if ! unzip -q "${temp_dir}/${archive}" -d "${temp_dir}/package"; then
     echo -e "${red}安装包解压失败。${plain}"
     exit 1
 fi
-if [[ ! -f ${temp_dir}/package/XrayR || ! -f ${temp_dir}/package/XrayR.service ]]; then
-    echo -e "${red}安装包缺少 XrayR 或 XrayR.service 文件，请重新构建 Release。${plain}"
+if [[ ! -f ${temp_dir}/package/XrayR ]]; then
+    echo -e "${red}安装包中没有找到 XrayR 可执行文件。${plain}"
     exit 1
+fi
+if [[ ! -f ${temp_dir}/package/XrayR.service ]]; then
+    echo "从 ${repo} 获取 XrayR.service..."
+    if ! curl --fail --location --retry 3 --output "${temp_dir}/XrayR.service" \
+        "https://raw.githubusercontent.com/${repo}/master/XrayR.service"; then
+        echo -e "${red}下载 ${repo} 中的 XrayR.service 失败。${plain}"
+        exit 1
+    fi
+    cp -f "${temp_dir}/XrayR.service" "${temp_dir}/package/XrayR.service"
 fi
 
 systemctl stop XrayR 2>/dev/null || true
