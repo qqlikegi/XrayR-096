@@ -1,102 +1,136 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
 
-REPO="qqlikegi/XrayR-096"
-INSTALL_DIR="/usr/local/XrayR"
-SERVICE_FILE="/etc/systemd/system/XrayR.service"
-TMP_DIR="$(mktemp -d)"
+red='\033[0;31m'
+green='\033[0;32m'
+yellow='\033[0;33m'
+plain='\033[0m'
+repo='qqlikegi/XrayR-096'
+install_dir='/usr/local/XrayR'
+config_dir='/etc/XrayR'
+service_file='/etc/systemd/system/XrayR.service'
+temp_dir=$(mktemp -d)
+trap 'rm -rf "$temp_dir"' EXIT
 
-cleanup() { rm -rf "$TMP_DIR"; }
-trap cleanup EXIT
-
-if [[ "$(id -u)" -ne 0 ]]; then
-  echo "请使用 root 用户运行此脚本。" >&2
-  exit 1
+if [[ $EUID -ne 0 ]]; then
+    echo -e "${red}错误：${plain} 必须使用 root 用户运行此脚本！"
+    exit 1
 fi
 
-if ! command -v curl >/dev/null 2>&1; then
-  echo "缺少 curl，请先安装 curl 后重试。" >&2
-  exit 1
-fi
-
-if ! command -v unzip >/dev/null 2>&1; then
-  echo "缺少 unzip，请先安装 unzip 后重试。" >&2
-  exit 1
+if [[ -f /etc/redhat-release ]]; then
+    release='centos'
+elif grep -Eqi 'debian' /etc/issue /proc/version 2>/dev/null; then
+    release='debian'
+elif grep -Eqi 'ubuntu' /etc/issue /proc/version 2>/dev/null; then
+    release='ubuntu'
+else
+    echo -e "${red}未检测到受支持的系统（Debian、Ubuntu 或 CentOS）。${plain}"
+    exit 1
 fi
 
 case "$(uname -m)" in
-  x86_64|amd64) ASSET="linux-64" ;;
-  aarch64|arm64) ASSET="linux-arm64-v8a" ;;
-  armv7l|armv7) ASSET="linux-arm32-v7a" ;;
-  armv6l|armv6) ASSET="linux-arm32-v6" ;;
-  armv5tel|armv5) ASSET="linux-arm32-v5" ;;
-  i386|i686) ASSET="linux-32" ;;
-  mips) ASSET="linux-mips32" ;;
-  mipsel) ASSET="linux-mips32le" ;;
-  mips64) ASSET="linux-mips64" ;;
-  mips64el) ASSET="linux-mips64le" ;;
-  riscv64) ASSET="linux-riscv64" ;;
-  s390x) ASSET="linux-s390x" ;;
-  ppc64le) ASSET="linux-ppc64le" ;;
-  *) echo "不支持的 CPU 架构: $(uname -m)" >&2; exit 1 ;;
+    x86_64|x64|amd64) arch='linux-64' ;;
+    i386|i486|i586|i686) arch='linux-32' ;;
+    aarch64|arm64) arch='linux-arm64-v8a' ;;
+    armv7l|armv7) arch='linux-arm32-v7a' ;;
+    armv6l|armv6) arch='linux-arm32-v6' ;;
+    armv5tel|armv5) arch='linux-arm32-v5' ;;
+    mips64) arch='linux-mips64' ;;
+    mips64el) arch='linux-mips64le' ;;
+    mipsel) arch='linux-mips32le' ;;
+    mips) arch='linux-mips32' ;;
+    ppc64le) arch='linux-ppc64le' ;;
+    riscv64) arch='linux-riscv64' ;;
+    s390x) arch='linux-s390x' ;;
+    *)
+        echo -e "${red}不支持的 CPU 架构：$(uname -m)${plain}"
+        exit 1
+        ;;
 esac
+echo "架构：${arch}"
 
-BASE_URL="https://github.com/${REPO}/releases/latest/download"
-ARCHIVE="XrayR-${ASSET}.zip"
-ARCHIVE_PATH="${TMP_DIR}/${ARCHIVE}"
+install_base() {
+    if [[ $release == 'centos' ]]; then
+        yum install -y epel-release
+        yum install -y wget curl unzip tar crontabs socat
+    else
+        apt-get update -y
+        apt-get install -y wget curl unzip tar cron socat
+    fi
+}
 
-echo "从 ${REPO} 下载 ${ARCHIVE}..."
-if ! curl --fail --location --retry 3 --output "$ARCHIVE_PATH" "${BASE_URL}/${ARCHIVE}"; then
-  echo "下载失败：你的 GitHub Release 还没有生成 ${ARCHIVE}。" >&2
-  echo "请等待 GitHub Actions 完成后再运行本脚本：" >&2
-  echo "https://github.com/${REPO}/actions" >&2
-  exit 1
+install_acme() {
+    curl --fail --location --silent --show-error https://get.acme.sh | sh
+}
+
+get_latest_version() {
+    curl --fail --location --silent --show-error \
+        "https://api.github.com/repos/${repo}/releases/latest" |
+        sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1
+}
+
+echo -e "${green}开始安装 XrayR${plain}"
+install_base
+install_acme
+
+if [[ -n ${1:-} ]]; then
+    version=$1
+else
+    version=$(get_latest_version)
+    if [[ -z $version ]]; then
+        echo -e "${red}读取 ${repo} 的最新 Release 失败。${plain}"
+        exit 1
+    fi
 fi
 
-mkdir -p "$INSTALL_DIR"
-unzip -oq "$ARCHIVE_PATH" -d "$TMP_DIR/package"
-
-if [[ ! -x "$TMP_DIR/package/XrayR" ]]; then
-  chmod +x "$TMP_DIR/package/XrayR" 2>/dev/null || true
-fi
-if [[ ! -f "$TMP_DIR/package/XrayR" ]]; then
-  echo "发布包中没有找到 XrayR 可执行文件。" >&2
-  exit 1
+archive="XrayR-${arch}.zip"
+download_url="https://github.com/${repo}/releases/download/${version}/${archive}"
+echo "下载 XrayR ${version}：${archive}"
+if ! curl --fail --location --retry 3 --output "${temp_dir}/${archive}" "$download_url"; then
+    echo -e "${red}下载失败：请确认 ${version} Release 已包含 ${archive}。${plain}"
+    exit 1
 fi
 
-systemctl stop XrayR.service 2>/dev/null || true
+mkdir -p "${temp_dir}/package"
+if ! unzip -q "${temp_dir}/${archive}" -d "${temp_dir}/package"; then
+    echo -e "${red}安装包解压失败。${plain}"
+    exit 1
+fi
+if [[ ! -f ${temp_dir}/package/XrayR || ! -f ${temp_dir}/package/XrayR.service ]]; then
+    echo -e "${red}安装包缺少 XrayR 或 XrayR.service 文件，请重新构建 Release。${plain}"
+    exit 1
+fi
 
-cp -f "$TMP_DIR/package/XrayR" "$INSTALL_DIR/XrayR"
-chmod 755 "$INSTALL_DIR/XrayR"
+systemctl stop XrayR 2>/dev/null || true
+rm -rf "$install_dir"
+mkdir -p "$install_dir" "$config_dir"
+cp -a "${temp_dir}/package/." "$install_dir/"
+chmod +x "${install_dir}/XrayR"
 
-# 保留已有配置；首次安装时才从你自己的 Release 包复制默认配置。
-for file in config.yml dns.json route.json custom_inbound.json custom_outbound.json geosite.dat geoip.dat rulelist; do
-  if [[ -f "$TMP_DIR/package/$file" && ! -f "$INSTALL_DIR/$file" ]]; then
-    cp -f "$TMP_DIR/package/$file" "$INSTALL_DIR/$file"
-  fi
+# 原版布局：可执行程序在 /usr/local/XrayR，配置和 Geo 数据在 /etc/XrayR。
+cp -f "${install_dir}/XrayR.service" "$service_file"
+for file in geoip.dat geosite.dat; do
+    [[ ! -f ${install_dir}/${file} ]] || cp -f "${install_dir}/${file}" "$config_dir/"
+done
+for file in config.yml dns.json route.json custom_outbound.json custom_inbound.json rulelist; do
+    if [[ ! -f ${config_dir}/${file} && -f ${install_dir}/${file} ]]; then
+        cp -f "${install_dir}/${file}" "$config_dir/"
+    fi
 done
 
-cat > "$SERVICE_FILE" <<EOF
-[Unit]
-Description=XrayR Service
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-WorkingDirectory=${INSTALL_DIR}
-ExecStart=${INSTALL_DIR}/XrayR -config ${INSTALL_DIR}/config.yml
-Restart=on-failure
-RestartSec=5s
-LimitNOFILE=1048576
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
 systemctl daemon-reload
-systemctl enable XrayR.service
-systemctl restart XrayR.service
+systemctl enable XrayR
+echo -e "${green}XrayR ${version} 安装完成，已设置开机自启。${plain}"
 
-echo "XrayR 已从 ${REPO} 安装到 ${INSTALL_DIR}。"
-systemctl --no-pager --full status XrayR.service || true
+if [[ ! -f ${config_dir}/config.yml ]]; then
+    echo -e "${yellow}首次安装，请先编辑 ${config_dir}/config.yml，再启动服务。${plain}"
+    exit 0
+fi
+
+systemctl restart XrayR
+sleep 2
+if systemctl is-active --quiet XrayR; then
+    echo -e "${green}XrayR 重启成功。${plain}"
+else
+    echo -e "${red}XrayR 未能启动，请查看日志：journalctl -u XrayR -e --no-pager${plain}"
+    exit 1
+fi
