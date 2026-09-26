@@ -96,7 +96,7 @@ run_action() {
         disable) systemctl disable XrayR ;;
         version)
             if [[ -x /usr/local/XrayR/XrayR ]]; then
-                /usr/local/XrayR/XrayR -version
+                /usr/local/XrayR/XrayR version
             else
                 echo 'XrayR 未安装。'
             fi
