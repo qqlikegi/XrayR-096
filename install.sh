@@ -108,6 +108,16 @@ if [[ ! -f ${temp_dir}/package/XrayR.service ]]; then
     fi
     cp -f "${temp_dir}/XrayR.service" "${temp_dir}/package/XrayR.service"
 fi
+if [[ -f ${temp_dir}/package/XrayR.sh ]]; then
+    cp -f "${temp_dir}/package/XrayR.sh" "${temp_dir}/XrayR.sh"
+else
+    echo "从 ${repo} 获取管理菜单脚本..."
+    if ! curl --fail --location --retry 3 --output "${temp_dir}/XrayR.sh" \
+        "https://raw.githubusercontent.com/${repo}/master/XrayR.sh"; then
+        echo -e "${red}下载 ${repo} 中的管理菜单脚本失败。${plain}"
+        exit 1
+    fi
+fi
 
 systemctl stop XrayR 2>/dev/null || true
 rm -rf "$install_dir"
@@ -117,6 +127,10 @@ chmod +x "${install_dir}/XrayR"
 
 # 原版布局：可执行程序在 /usr/local/XrayR，配置和 Geo 数据在 /etc/XrayR。
 cp -f "${install_dir}/XrayR.service" "$service_file"
+install -m 755 "${temp_dir}/XrayR.sh" /usr/bin/XrayR
+ln -sfn /usr/bin/XrayR /usr/bin/xrayr
+had_config=0
+[[ ! -f ${config_dir}/config.yml ]] || had_config=1
 for file in geoip.dat geosite.dat; do
     [[ ! -f ${install_dir}/${file} ]] || cp -f "${install_dir}/${file}" "$config_dir/"
 done
@@ -129,8 +143,9 @@ done
 systemctl daemon-reload
 systemctl enable XrayR
 echo -e "${green}XrayR ${version} 安装完成，已设置开机自启。${plain}"
+echo '输入 xrayr 可打开管理菜单。'
 
-if [[ ! -f ${config_dir}/config.yml ]]; then
+if [[ $had_config -eq 0 ]]; then
     echo -e "${yellow}首次安装，请先编辑 ${config_dir}/config.yml，再启动服务。${plain}"
     exit 0
 fi
